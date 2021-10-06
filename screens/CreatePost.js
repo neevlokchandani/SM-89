@@ -8,23 +8,81 @@ import {
     StatusBar,
     Image,
     ScrollView,
-    TextInput
+    TextInput,
+    Button
 } from "react-native";
 
 import { RFValue } from "react-native-responsive-fontsize";
 import DropDownPicker from "react-native-dropdown-picker";
+
+import firebase from "firebase";
 
 export default class CreatePost extends Component {
     constructor(props) {
         super(props);
         this.state = {
             previewImage: "image_1",
-            dropdownHeight: 40
+            dropdownHeight: 40,
+            light_theme: true,
+            name: "",
+            profile_image: ""
         };
     }
 
     componentDidMount() {
+        this.fetchUser();
+    }
 
+    async addPost() {
+        if (
+            this.state.caption
+        ) {
+            let postData = {
+                preview_image: this.state.previewImage,
+                caption: this.state.caption,
+                author: firebase.auth().currentUser.displayName,
+                created_on: new Date(),
+                author_uid: firebase.auth().currentUser.uid,
+                profile_image: this.state.profile_image,
+                likes: 0
+            };
+            await firebase
+                .database()
+                .ref(
+                    "/posts/" +
+                    Math.random()
+                        .toString(36)
+                        .slice(2)
+                )
+                .set(postData)
+                .then(function (snapshot) { });
+            this.props.setUpdateToTrue();
+            this.props.navigation.navigate("Feed");
+        } else {
+            Alert.alert(
+                "Error",
+                "All fields are required!",
+                [{ text: "OK", onPress: () => console.log("OK Pressed") }],
+                { cancelable: false }
+            );
+        }
+    }
+
+    async fetchUser() {
+        let theme, name, image;
+        await firebase
+            .database()
+            .ref("/users/" + firebase.auth().currentUser.uid)
+            .on("value", function (snapshot) {
+                theme = snapshot.val().current_theme;
+                name = `${snapshot.val().first_name} ${snapshot.val().last_name}`;
+                image = snapshot.val().profile_picture;
+            });
+        this.setState({
+            light_theme: theme === "light" ? true : false,
+            name: name,
+            profile_image: image
+        });
     }
 
     render() {
@@ -38,7 +96,7 @@ export default class CreatePost extends Component {
             image_7: require("../assets/image_7.jpg")
         };
         return (
-            <View style={styles.container}>
+            <View style={this.state.light_theme ? styles.containerLight : styles.container}>
                 <SafeAreaView style={styles.droidSafeArea} />
                 <View style={styles.appTitle}>
                     <View style={styles.appIcon}>
@@ -48,7 +106,7 @@ export default class CreatePost extends Component {
                         ></Image>
                     </View>
                     <View style={styles.appTitleTextContainer}>
-                        <Text style={styles.appTitleText}>New Post</Text>
+                        <Text style={this.state.light_theme ? styles.appTitleTextLight : styles.appTitleText}>New Post</Text>
                     </View>
                 </View>
                 <View style={styles.fieldsContainer}>
@@ -84,12 +142,12 @@ export default class CreatePost extends Component {
                                 itemStyle={{
                                     justifyContent: "flex-start"
                                 }}
-                                dropDownStyle={{ backgroundColor: "#2a2a2a" }}
+                                dropDownStyle={{ backgroundColor: this.state.light_theme ? "#eee" : "#2a2a2a" }}
                                 labelStyle={{
-                                    color: "white"
+                                    color: this.state.light_theme ? "black" : "white"
                                 }}
                                 arrowStyle={{
-                                    color: "white"
+                                    color: this.state.light_theme ? "black" : "white"
                                 }}
                                 onChangeItem={item =>
                                     this.setState({
@@ -100,11 +158,19 @@ export default class CreatePost extends Component {
                         </View>
 
                         <TextInput
-                            style={styles.inputFont}
+                            style={this.state.light_theme ? styles.inputFontLight : styles.inputFont}
                             onChangeText={caption => this.setState({ caption })}
                             placeholder={"Caption"}
-                            placeholderTextColor="white"
+                            placeholderTextColor={this.state.light_theme ? "black" : "white"}
                         />
+
+                        <View style={styles.submitButton}>
+                            <Button
+                                onPress={() => this.addPost()}
+                                title="Submit"
+                                color="#841584"
+                            />
+                        </View>
                     </ScrollView>
                 </View>
                 <View style={{ flex: 0.08 }} />
@@ -117,6 +183,10 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: "black"
+    },
+    containerLight: {
+        flex: 1,
+        backgroundColor: "white"
     },
     droidSafeArea: {
         marginTop: Platform.OS === "android" ? StatusBar.currentHeight : RFValue(35)
@@ -143,6 +213,11 @@ const styles = StyleSheet.create({
         color: "white",
         fontSize: RFValue(28)
     },
+    appTitleTextLight: {
+        color: "black",
+        fontSize: 28,
+        paddingLeft: 20
+    },
     fieldsContainer: {
         flex: 0.85
     },
@@ -161,5 +236,18 @@ const styles = StyleSheet.create({
         borderRadius: RFValue(10),
         paddingLeft: RFValue(10),
         color: "white"
+    },
+    inputFontLight: {
+        height: 40,
+        borderColor: 'black',
+        borderWidth: 1,
+        borderRadius: 10,
+        paddingLeft: 10,
+        color: "black"
+    },
+    submitButton: {
+        marginTop: RFValue(20),
+        alignItems: "center",
+        justifyContent: "center"
     }
 });
